@@ -82,7 +82,7 @@
 For questions, feedback, or bug reports, contact the maintainer:
 - **Email**: MrAmirRezaie70@gmail.com
 - **Telegram**: [@MrAmirRezaie](https://t.me/MrAmirRezaie)
-- **GitHub**: [internetScraper](https://github.com/MrAmirRezaie/internetScraper)
+- **GitHub**: [Downloader](https://github.com/MrAmirRezaie/M_V_Downloader/)
 ---
 
 ## License
