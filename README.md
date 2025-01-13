@@ -35,7 +35,7 @@ This is a Python-based tool designed to help you download music, videos, subtitl
 ## Usage
 - Run the script using the following command:
     ```bash
-    python nP.py
+    python Downloader.py
     ```
 - After running, an interactive menu will be displayed, prompting you to choose the type of download (music, video, subtitles, playlist, or parallel download). Then, enter the desired URL and other settings (such as output format, quality, and save path).
 ---
