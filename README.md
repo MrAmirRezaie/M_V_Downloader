@@ -1,6 +1,6 @@
 # Music and Video Downloader
 
-This is a Python-based tool designed to help you download music, videos, subtitles, and playlists from YouTube and other platforms supported by ‍`yt-dlp‍`. It offers advanced features such as parallel downloading of multiple files and the ability to set metadata for audio files, ensuring a seamless and organized downloading experience.
+- This is a Python-based tool designed to help you download music, videos, subtitles, and playlists from YouTube and other platforms supported by ‍`yt-dlp‍`. It offers advanced features such as parallel downloading of multiple files and the ability to set metadata for audio files, ensuring a seamless and organized downloading experience.
 ---
 
 ## Features
