@@ -9,10 +9,17 @@ from tqdm import tqdm
 import threading
 import json
 from concurrent.futures import ThreadPoolExecutor
+import time
+from datetime import datetime
+import logging
+from pathlib import Path
+import re
 
 # Configuration file to store user preferences
 CONFIG_FILE = "config.json"
 
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def detect_package_manager():
     """Detect the package manager used by the Linux distribution."""
@@ -28,15 +35,14 @@ def detect_package_manager():
             return pkg_manager
     return None
 
-
 def install_ffmpeg():
     """Install ffmpeg using the detected package manager."""
     package_manager = detect_package_manager()
     if not package_manager:
-        print("Package manager not detected. Please install ffmpeg manually.")
+        logging.error("Package manager not detected. Please install ffmpeg manually.")
         sys.exit(1)
 
-    print(f"Detected package manager: {package_manager}")
+    logging.info(f"Detected package manager: {package_manager}")
     try:
         if package_manager == "apt":
             subprocess.run(["sudo", "apt", "update"], check=True)
@@ -49,36 +55,34 @@ def install_ffmpeg():
             subprocess.run(["sudo", "pacman", "-Sy", "--noconfirm", "ffmpeg"], check=True)
         elif package_manager == "zypper":
             subprocess.run(["sudo", "zypper", "install", "-y", "ffmpeg"], check=True)
-        print("ffmpeg installed successfully.")
+        logging.info("ffmpeg installed successfully.")
     except subprocess.CalledProcessError as e:
-        print(f"Error installing ffmpeg: {e}")
-        print("Please install ffmpeg manually: https://ffmpeg.org/download.html")
+        logging.error(f"Error installing ffmpeg: {e}")
+        logging.error("Please install ffmpeg manually: https://ffmpeg.org/download.html")
         sys.exit(1)
-
 
 def install_requirements():
     """Install yt-dlp and ffmpeg automatically."""
     try:
         import yt_dlp
     except ImportError:
-        print("Installing yt-dlp...")
+        logging.info("Installing yt-dlp...")
         try:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "yt-dlp"])
         except subprocess.CalledProcessError as e:
-            print(f"Error installing yt-dlp: {e}")
+            logging.error(f"Error installing yt-dlp: {e}")
             sys.exit(1)
 
     # Check if ffmpeg is installed
     try:
         subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     except (FileNotFoundError, subprocess.CalledProcessError):
-        print("ffmpeg not found. Installing ffmpeg...")
+        logging.info("ffmpeg not found. Installing ffmpeg...")
         if platform.system().lower() == "linux":
             install_ffmpeg()
         else:
-            print("Unsupported operating system. Please install ffmpeg manually.")
+            logging.error("Unsupported operating system. Please install ffmpeg manually.")
             sys.exit(1)
-
 
 def set_metadata(file_path, metadata):
     """Set metadata for the downloaded file."""
@@ -89,8 +93,7 @@ def set_metadata(file_path, metadata):
         audio['album'] = metadata.get('album', 'Unknown Album')
         audio.save()
     except Exception as e:
-        print(f"Error setting metadata: {e}")
-
+        logging.error(f"Error setting metadata: {e}")
 
 def download_music(url, proxy=None, output_format="mp3", output_dir=".", retries=3):
     """Download music in the best quality and save in the specified format."""
@@ -125,14 +128,13 @@ def download_music(url, proxy=None, output_format="mp3", output_dir=".", retries
                 return os.path.abspath(file_path)  # Return absolute path of the downloaded file
         except yt_dlp.utils.DownloadError as e:
             if attempt < retries - 1:
-                print(f"Attempt {attempt + 1} failed. Retrying...")
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
             else:
-                print(f"Download error: {e}")
+                logging.error(f"Download error: {e}")
                 return None
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            logging.error(f"An unexpected error occurred: {e}")
             return None
-
 
 def download_video(url, proxy=None, output_format="mp4", output_dir=".", quality="best", retries=3):
     """Download video in the specified quality and format."""
@@ -152,14 +154,13 @@ def download_video(url, proxy=None, output_format="mp4", output_dir=".", quality
                 return os.path.abspath(file_path)  # Return absolute path of the downloaded file
         except yt_dlp.utils.DownloadError as e:
             if attempt < retries - 1:
-                print(f"Attempt {attempt + 1} failed. Retrying...")
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
             else:
-                print(f"Download error: {e}")
+                logging.error(f"Download error: {e}")
                 return None
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            logging.error(f"An unexpected error occurred: {e}")
             return None
-
 
 def download_subtitles(url, proxy=None, output_dir=".", retries=3):
     """Download subtitles for the video."""
@@ -181,14 +182,13 @@ def download_subtitles(url, proxy=None, output_dir=".", retries=3):
                 return os.path.abspath(file_path)  # Return absolute path of the downloaded subtitles
         except yt_dlp.utils.DownloadError as e:
             if attempt < retries - 1:
-                print(f"Attempt {attempt + 1} failed. Retrying...")
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
             else:
-                print(f"Download error: {e}")
+                logging.error(f"Download error: {e}")
                 return None
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            logging.error(f"An unexpected error occurred: {e}")
             return None
-
 
 def download_playlist(url, proxy=None, output_format="mp3", output_dir=".", retries=3):
     """Download all tracks from a playlist."""
@@ -212,14 +212,13 @@ def download_playlist(url, proxy=None, output_format="mp3", output_dir=".", retr
                 return os.path.abspath(output_dir)  # Return absolute path of the downloaded playlist
         except yt_dlp.utils.DownloadError as e:
             if attempt < retries - 1:
-                print(f"Attempt {attempt + 1} failed. Retrying...")
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
             else:
-                print(f"Download error: {e}")
+                logging.error(f"Download error: {e}")
                 return None
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            logging.error(f"An unexpected error occurred: {e}")
             return None
-
 
 def download_parallel(urls, proxy=None, output_format="mp3", output_dir=".", retries=3):
     """Download multiple files in parallel."""
@@ -230,6 +229,272 @@ def download_parallel(urls, proxy=None, output_format="mp3", output_dir=".", ret
         for future in futures:
             future.result()
 
+def download_video_with_subs(url, proxy=None, output_format="mp4", output_dir=".", quality="best", retries=3):
+    """Download video with embedded subtitles."""
+    ydl_opts = {
+        'format': f'bestvideo[height<={quality}]+bestaudio/best[height<={quality}]',
+        'writesubtitles': True,
+        'writeautomaticsub': True,
+        'subtitlesformat': 'srt',
+        'embedsubs': True,  # Embed subtitles in the video
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+    }
+
+    for attempt in range(retries):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                return os.path.abspath(file_path)
+        except yt_dlp.utils.DownloadError as e:
+            if attempt < retries - 1:
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            else:
+                logging.error(f"Download error: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return None
+
+def download_audio_from_video(url, proxy=None, output_format="mp3", output_dir=".", retries=3):
+    """Download audio from a video."""
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': output_format,
+            'preferredquality': '320',
+        }],
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+    }
+
+    for attempt in range(retries):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                file_path = file_path.replace(".webm", f".{output_format}").replace(".m4a", f".{output_format}")
+                return os.path.abspath(file_path)
+        except yt_dlp.utils.DownloadError as e:
+            if attempt < retries - 1:
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            else:
+                logging.error(f"Download error: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return None
+
+def download_video_custom_quality(url, proxy=None, output_format="mp4", output_dir=".", quality="best", retries=3):
+    """Download video with custom quality."""
+    ydl_opts = {
+        'format': f'bestvideo[height<={quality}]+bestaudio/best[height<={quality}]',
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+    }
+
+    for attempt in range(retries):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                return os.path.abspath(file_path)
+        except yt_dlp.utils.DownloadError as e:
+            if attempt < retries - 1:
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            else:
+                logging.error(f"Download error: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return None
+
+def download_video_chunked(url, proxy=None, output_format="mp4", output_dir=".", quality="best", retries=3):
+    """Download video in chunks."""
+    ydl_opts = {
+        'format': f'bestvideo[height<={quality}]+bestaudio/best[height<={quality}]',
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+        'continuedl': True,  # Continue partially downloaded files
+    }
+
+    for attempt in range(retries):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                return os.path.abspath(file_path)
+        except yt_dlp.utils.DownloadError as e:
+            if attempt < retries - 1:
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            else:
+                logging.error(f"Download error: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return None
+
+def download_with_speed_limit(url, proxy=None, output_format="mp3", output_dir=".", speed_limit="1M", retries=3):
+    """Download with a speed limit."""
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': output_format,
+            'preferredquality': '320',
+        }],
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+        'ratelimit': speed_limit,  # Limit download speed (e.g., "1M" for 1 MB/s)
+    }
+
+    for attempt in range(retries):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                file_path = file_path.replace(".webm", f".{output_format}").replace(".m4a", f".{output_format}")
+                return os.path.abspath(file_path)
+        except yt_dlp.utils.DownloadError as e:
+            if attempt < retries - 1:
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            else:
+                logging.error(f"Download error: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return None
+
+def download_video_advanced(url, proxy=None, output_format="mp4", output_dir=".", quality="best", codec="h264",
+                            framerate=30, retries=3):
+    """Download video with advanced settings."""
+    ydl_opts = {
+        'format': f'bestvideo[height<={quality}][vcodec^={codec}][fps<={framerate}]+bestaudio/best[height<={quality}]',
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+    }
+
+    for attempt in range(retries):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                return os.path.abspath(file_path)
+        except yt_dlp.utils.DownloadError as e:
+            if attempt < retries - 1:
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            else:
+                logging.error(f"Download error: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return None
+
+def download_subtitles_multilang(url, proxy=None, output_dir=".", languages=["en"], retries=3):
+    """Download subtitles in multiple languages."""
+    ydl_opts = {
+        'writesubtitles': True,
+        'writeautomaticsub': True,
+        'subtitlesformat': 'srt',
+        'subtitleslangs': languages,  # List of languages (e.g., ["en", "fr", "es"])
+        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+    }
+
+    for attempt in range(retries):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                return os.path.abspath(file_path)
+        except yt_dlp.utils.DownloadError as e:
+            if attempt < retries - 1:
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            else:
+                logging.error(f"Download error: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return None
+
+def scheduled_download(url, proxy=None, output_format="mp4", output_dir=".", quality="best", scheduled_time=None):
+    """Schedule a download for a specific time."""
+    if scheduled_time:
+        scheduled_time = datetime.strptime(scheduled_time, "%Y-%m-%d %H:%M:%S")
+        while datetime.now() < scheduled_time:
+            time.sleep(1)
+        logging.info("Starting scheduled download...")
+        return download_video(url, proxy, output_format, output_dir, quality)
+    else:
+        logging.info("No scheduled time provided. Downloading now...")
+        return download_video(url, proxy, output_format, output_dir, quality)
+
+def download_preview(url, proxy=None, output_dir=".", duration=10):
+    """Download a preview of the video."""
+    ydl_opts = {
+        'format': 'best',
+        'outtmpl': os.path.join(output_dir, '%(title)s_preview.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+        'postprocessor_args': ['-t', str(duration)],  # Duration of the preview in seconds
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(url, download=True)
+            file_path = ydl.prepare_filename(info_dict)
+            return os.path.abspath(file_path)
+    except yt_dlp.utils.DownloadError as e:
+        logging.error(f"Download error: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
+        return None
+
+def download_compressed_video(url, proxy=None, output_format="mp4", output_dir=".", quality="best",
+                              compression_level=23, retries=3):
+    """Download video with compression."""
+    ydl_opts = {
+        'format': f'bestvideo[height<={quality}]+bestaudio/best[height<={quality}]',
+        'outtmpl': os.path.join(output_dir, '%(title)s_compressed.%(ext)s'),
+        'quiet': False,
+        'no_warnings': False,
+        'proxy': proxy,
+        'postprocessor_args': ['-crf', str(compression_level)],  # Compression level (0-51, lower is better quality)
+    }
+
+    for attempt in range(retries):
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                file_path = ydl.prepare_filename(info_dict)
+                return os.path.abspath(file_path)
+        except yt_dlp.utils.DownloadError as e:
+            if attempt < retries - 1:
+                logging.warning(f"Attempt {attempt + 1} failed. Retrying...")
+            else:
+                logging.error(f"Download error: {e}")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred: {e}")
+            return None
 
 def load_config():
     """Load user preferences from the configuration file."""
@@ -238,12 +503,10 @@ def load_config():
             return json.load(f)
     return {}
 
-
 def save_config(config):
     """Save user preferences to the configuration file."""
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f)
-
 
 def interactive_menu():
     """Display an interactive menu for the user."""
@@ -253,10 +516,19 @@ def interactive_menu():
     print("3. Download a video")
     print("4. Download subtitles")
     print("5. Download multiple tracks in parallel")
-    print("6. Exit")
-    choice = input("Enter your choice (1/2/3/4/5/6): ")
+    print("6. Download video with embedded subtitles")
+    print("7. Download audio from video")
+    print("8. Download video with custom quality")
+    print("9. Download video in chunks")
+    print("10. Download with speed limit")
+    print("11. Download video with advanced settings")
+    print("12. Download subtitles in multiple languages")
+    print("13. Schedule a download")
+    print("14. Download a preview of the video")
+    print("15. Download compressed video")
+    print("16. Exit")
+    choice = input("Enter your choice (1-16): ")
     return choice
-
 
 if __name__ == "__main__":
     # Install requirements
@@ -397,6 +669,304 @@ if __name__ == "__main__":
                 print(f"An error occurred: {e}")
 
         elif choice == "6":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output format from the user
+            output_format = input("Enter output format (mp4/mkv) [Default: mp4]: ").lower() or "mp4"
+
+            # Get quality from the user
+            quality = input("Enter video quality (e.g., 1080, 720, 480) [Default: best]: ") or "best"
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Download the video with embedded subtitles
+            try:
+                downloaded_file_path = download_video_with_subs(video_url, proxy, output_format, output_dir, quality)
+                if downloaded_file_path:
+                    print(f"Video with embedded subtitles downloaded successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download the video with embedded subtitles.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "7":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output format from the user
+            output_format = input("Enter output format (mp3/m4a/wav/aac/flac/ogg) [Default: mp3]: ").lower() or "mp3"
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Download the audio from the video
+            try:
+                downloaded_file_path = download_audio_from_video(video_url, proxy, output_format, output_dir)
+                if downloaded_file_path:
+                    print(f"Audio from video downloaded successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download the audio from video.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "8":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output format from the user
+            output_format = input("Enter output format (mp4/mkv) [Default: mp4]: ").lower() or "mp4"
+
+            # Get quality from the user
+            quality = input("Enter video quality (e.g., 1080, 720, 480) [Default: best]: ") or "best"
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Download the video with custom quality
+            try:
+                downloaded_file_path = download_video_custom_quality(video_url, proxy, output_format, output_dir,
+                                                                     quality)
+                if downloaded_file_path:
+                    print(f"Video with custom quality downloaded successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download the video with custom quality.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "9":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output format from the user
+            output_format = input("Enter output format (mp4/mkv) [Default: mp4]: ").lower() or "mp4"
+
+            # Get quality from the user
+            quality = input("Enter video quality (e.g., 1080, 720, 480) [Default: best]: ") or "best"
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Download the video in chunks
+            try:
+                downloaded_file_path = download_video_chunked(video_url, proxy, output_format, output_dir, quality)
+                if downloaded_file_path:
+                    print(f"Video downloaded in chunks successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download the video in chunks.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "10":
+            # Get the music URL from the user
+            music_url = input("Enter the music URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output format from the user
+            output_format = input("Enter output format (mp3/m4a/wav/aac/flac/ogg) [Default: mp3]: ").lower() or "mp3"
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Get speed limit from the user
+            speed_limit = input("Enter speed limit (e.g., 1M for 1 MB/s) [Default: 1M]: ") or "1M"
+
+            # Download with speed limit
+            try:
+                downloaded_file_path = download_with_speed_limit(music_url, proxy, output_format, output_dir,
+                                                                 speed_limit)
+                if downloaded_file_path:
+                    print(f"Music downloaded with speed limit successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download the music with speed limit.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "11":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output format from the user
+            output_format = input("Enter output format (mp4/mkv) [Default: mp4]: ").lower() or "mp4"
+
+            # Get quality from the user
+            quality = input("Enter video quality (e.g., 1080, 720, 480) [Default: best]: ") or "best"
+
+            # Get codec from the user
+            codec = input("Enter video codec (e.g., h264, vp9) [Default: h264]: ") or "h264"
+
+            # Get framerate from the user
+            framerate = input("Enter video framerate (e.g., 30, 60) [Default: 30]: ") or "30"
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Download the video with advanced settings
+            try:
+                downloaded_file_path = download_video_advanced(video_url, proxy, output_format, output_dir, quality,
+                                                               codec, framerate)
+                if downloaded_file_path:
+                    print(f"Video with advanced settings downloaded successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download the video with advanced settings.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "12":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Get languages from the user
+            languages = input("Enter languages for subtitles (e.g., en,fr,es) [Default: en]: ").split(",") or ["en"]
+
+            # Download subtitles in multiple languages
+            try:
+                downloaded_file_path = download_subtitles_multilang(video_url, proxy, output_dir, languages)
+                if downloaded_file_path:
+                    print(f"Subtitles in multiple languages downloaded successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download subtitles in multiple languages.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "13":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output format from the user
+            output_format = input("Enter output format (mp4/mkv) [Default: mp4]: ").lower() or "mp4"
+
+            # Get quality from the user
+            quality = input("Enter video quality (e.g., 1080, 720, 480) [Default: best]: ") or "best"
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Get scheduled time from the user
+            scheduled_time = input("Enter scheduled time (YYYY-MM-DD HH:MM:SS) [Leave blank for immediate download]: ")
+
+            # Schedule the download
+            try:
+                downloaded_file_path = scheduled_download(video_url, proxy, output_format, output_dir, quality,
+                                                          scheduled_time)
+                if downloaded_file_path:
+                    print(f"Video scheduled download completed successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to schedule the download.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "14":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Get preview duration from the user
+            duration = input("Enter preview duration in seconds (e.g., 10) [Default: 10]: ") or "10"
+
+            # Download the preview
+            try:
+                downloaded_file_path = download_preview(video_url, proxy, output_dir, int(duration))
+                if downloaded_file_path:
+                    print(f"Video preview downloaded successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download the video preview.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "15":
+            # Get the video URL from the user
+            video_url = input("Enter the video URL: ")
+
+            # Get proxy settings from the user (optional)
+            proxy = input(
+                "Enter proxy (e.g., http://user:pass@host:port or socks5://user:pass@host:port) [Leave blank if not using proxy]: ")
+
+            # Get output format from the user
+            output_format = input("Enter output format (mp4/mkv) [Default: mp4]: ").lower() or "mp4"
+
+            # Get quality from the user
+            quality = input("Enter video quality (e.g., 1080, 720, 480) [Default: best]: ") or "best"
+
+            # Get compression level from the user
+            compression_level = input("Enter compression level (0-51, lower is better quality) [Default: 23]: ") or "23"
+
+            # Get output directory from the user
+            output_dir = input("Enter output directory [Default: current directory]: ") or "."
+
+            # Download the compressed video
+            try:
+                downloaded_file_path = download_compressed_video(video_url, proxy, output_format, output_dir, quality,
+                                                                 int(compression_level))
+                if downloaded_file_path:
+                    print(f"Compressed video downloaded successfully! File path: {downloaded_file_path}")
+                else:
+                    print("Failed to download the compressed video.")
+            except KeyboardInterrupt:
+                print("\nDownload canceled by the user.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
+
+        elif choice == "16":
             print("Exiting...")
             sys.exit(0)
 
