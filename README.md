@@ -74,7 +74,7 @@ This is a Python script for downloading music, videos, subtitles, and playlists 
 For questions, feedback, or bug reports, contact the maintainer:
 - **Email**: MrAmirRezaie70@gmail.com
 - **Telegram**: [@MrAmirRezaie](https://t.me/MrAmirRezaie)
-- **GitHub**: [internetScraper](https://github.com/MrAmirRezaie/internetScraper)
+- **GitHub**: [MrAmirRezaie](https://github.com/MrAmirRezaie)
 ---
 
 ## License
