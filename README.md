@@ -77,10 +77,6 @@ For questions, feedback, or bug reports, contact the maintainer:
 - **GitHub**: [MrAmirRezaie](https://github.com/MrAmirRezaie)
 ---
 
-## License
-- This project is released under the MIT License.
----
-
 ## Contributing
 - Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
 ---
